@@ -1,0 +1,14 @@
+name: deepaa
+channels:
+  - defaults
+dependencies:
+  - python
+  - matplotlib
+  - seaborn
+  - numpy
+  - pandas
+  - scipy  
+  - imageio
+  - tensorflow
+  - jupyter
+  - tensorflow-probability
