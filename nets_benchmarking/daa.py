@@ -3,35 +3,19 @@
 """
 Created on Thu Apr  2 12:25:27 2020
 
-@author: oehlers
+Code adapted from Keller, Sebastian Mathias, et al. "Learning extremal representations with deep archetypal analysis." International Journal of Computer Vision 129.4 (2021): 805-820
+for materials science data (original code was built for image analysis)
+@author: Keller, Sebastian Mathias, et al., oehlers
 """
-### lib_at imports:
 import numpy as np
 from scipy.linalg import solve
-#import matplotlib.pyplot as plt
-#import matplotlib as mpl
 import scipy as sp
-
-### lib_vae imports:
 import tensorflow as tf
-#import numpy as np
 tfd = tf.contrib.distributions 
-
-### daa_JAFFE imports:
-#import matplotlib.pyplot as plt
-#from datetime import datetime
 import os
-#import argparse
-#from itertools import compress
-#from pathlib import Path
-# scipy stack + tf
-#import numpy as np
 import pandas as pd
 import tensorflow as tf
 from nets_benchmarking.func_collection import get_zfixed
-# custom libs
-#from AT_lib import lib_vae, lib_at
-#tfd = tf.contrib.distributions
 
     
 ##########################################################################################################
@@ -272,17 +256,7 @@ def execute(data, version = 'original', epochs=100,at_loss_factor=8.0, target_lo
     #os.environ['QT_QPA_PLATFORM']='offscreen'
     x_train_feat = data['train_feat']
     x_train_targets = data['train_targets']
-    #x_test_feat = data['test_feat']
-    #x_test_targets = data['test_targets']
     
-    
-# =============================================================================
-#     runNB = "1"
-#     results_path = './Results/JAFFE'
-#     test_frequency_epochs = 100
-#     save_each = 10000
-# =============================================================================
-
     # NN settings
     gpu = '0'
     learning_rate = 1e-4
@@ -293,63 +267,21 @@ def execute(data, version = 'original', epochs=100,at_loss_factor=8.0, target_lo
     n_targets = x_train_targets.shape[1]
     trainable_var = False
 
-# =============================================================================
-#     test_model = False
-#     model_substr = None
-# 
-# =============================================================================
     # Different settings for the prior
     vamp_prior = False
     dir_prior = False
-    #vamp_num_inducing = 50
     vae = False
 
     assert not (dir_prior and vamp_prior), "The different priors are mutually exclusive."
     assert 0 < n_targets <= 5, "Choose up to 5 targets."
-
-    #nAT = dim_latentspace + 1
-
+    
     # GPU targets
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu)
 
-# =============================================================================
-#     # all the path/directory stuff
-#     CUR_DIR = Path(__file__).resolve().parent
-#     RESULTS_DIR = CUR_DIR / 'Results/JAFFE'
-#     if not test_model:
-#         # create new model directory
-#         MODEL_DIR = RESULTS_DIR / "{time}_{run_name}_{dim_lspace}_{mb_size}_{n_epochs}".format(
-#             time=datetime.now().replace(second=0, microsecond=0),
-#             run_name=runNB, dim_lspace=dim_latentspace, mb_size=batch_size, n_epochs=n_epochs)
-#     else:
-#         # get latest trained model matching to model_substr
-#         all_results = os.listdir(RESULTS_DIR)
-#         if model_substr is not None:
-#             idx = [model_substr in res for res in all_results]
-#             all_results = list(compress(all_results, idx))
-#         all_results.sort()
-#         MODEL_DIR = RESULTS_DIR / all_results[-1]
-# 
-#     FINAL_RESULTS_DIR = MODEL_DIR / 'final_results/'
-#     TENSORBOARD_DIR = MODEL_DIR / 'Tensorboard'
-#     IMGS_DIR = MODEL_DIR / 'imgs'
-#     SAVED_MODELS_DIR = MODEL_DIR / 'Saved_models/'
-#     VIDEO_IMGS_DIR = FINAL_RESULTS_DIR / "video_imgs"
-# 
-#     JAFFE_CSV_P = CUR_DIR / 'jaffe/targets.csv'
-#     JAFFE_IMGS_DIR = CUR_DIR / 'jaffe/feats'
-# 
-#     if not test_model:
-#         for path in [TENSORBOARD_DIR, SAVED_MODELS_DIR, IMGS_DIR]:
-#             os.makedirs(path, exist_ok=True)
-# =============================================================================
-
     if seed is not None:
         np.random.seed(seed)
         tf.set_random_seed(seed)
-
-    #nAT = dim_latentspace + 1
     
     def build_loss(version='original'):
         """
@@ -367,31 +299,26 @@ def execute(data, version = 'original', epochs=100,at_loss_factor=8.0, target_lo
             archetype_loss = tf.losses.mean_squared_error(z_predicted, z_fixed)
         else:
             archetype_loss = tf.constant(0, dtype=tf.float32)
+            
         # Sideinformation Reconstruction loss
         if version=='milena':
             target_loss = tf.reduce_sum(y_hat.log_prob(side_information)) 
         if version in ['original','luigi']:
-            target_loss = tf.losses.mean_squared_error(side_information, y_hat) # * target_loss_factor
-        
+            target_loss = tf.losses.mean_squared_error(side_information, y_hat)         
             
         elbo = tf.reduce_mean(
             recon_loss_factor * likelihood
-            + target_loss_factor * target_loss # + instead of - as in original paper due to loss definition as in paper now (continuous, single target variable)
+            + target_loss_factor * target_loss 
             - at_loss_factor * archetype_loss
             - kl_loss_factor * divergence
         )
 
         return archetype_loss, target_loss, likelihood, divergence, elbo
-    ####################################################################################################################
-    ############################################# Create Data #################################################################
-    ### shifted to jupyter notebook
-    ####################################################################################################################
-    # ########################################### Use Data #################################################################
     
     tf.reset_default_graph()
     sess = tf.InteractiveSession()
 
-    # # Japanese Face Expressions
+    # Japanese Face Expressions
 
     n_total_samples, n_feats = x_train_feat.shape[0], x_train_feat.shape[1]
     n_batches = int(n_total_samples / batch_size)
@@ -416,14 +343,12 @@ def execute(data, version = 'original', epochs=100,at_loss_factor=8.0, target_lo
     some_feats = all_feats[:batch_size]
     some_targets = all_targets[:batch_size]
     all_imgs_ext = np.vstack((all_feats, all_feats[:batch_size]))
-    #jaffe_meta_data = pd.read_csv(JAFFE_CSV_P, header=0, delimiter=" ")
 
     ####################################################################################################################
     # ########################################### Data Placeholders ####################################################
     data = tf.placeholder(tf.float32, [None, n_feats], 'data')
     side_information = tf.placeholder(tf.float32, [None, n_targets], 'targets')
-    #latent_code = tf.placeholder(tf.float32, [None, dim_latentspace], 'latent_code')
-    
+        
     ####################################################################################################################
     # ########################################### Model Setup ##########################################################
     z_fixed_ = lib_at.create_z_fix(dim_latentspace)
@@ -455,11 +380,6 @@ def execute(data, version = 'original', epochs=100,at_loss_factor=8.0, target_lo
     tf.summary.scalar(name='target_loss', tensor=target_loss)
     tf.summary.scalar(name='likelihood', tensor=likelihood)
     tf.summary.scalar(name='kl_divergence', tensor=kl_divergence)
-    #tf.summary.tensor(name='x_sam', tensor=x_sam)
-    #tf.summary.tensor(name='y_sam', tensor=y_sam)
-    
-    #hyperparameters = [tf.convert_to_tensor([k, str(v)]) for k, v in vars(args).items()]
-    #tf.summary.text('hyperparameters', tf.stack(hyperparameters))
 
     summary_op = tf.summary.merge_all()
 
@@ -509,8 +429,6 @@ def execute(data, version = 'original', epochs=100,at_loss_factor=8.0, target_lo
         return df
     
     def extract_xy_hat(df):
-        #tmp_x_mean = sess.run(x_mean, feed_dict={latent_code: df})
-        #decoded_post_sample = decoder(df)
         tmp_xmean = sess.run(x_mean, feed_dict={data: all_feats,
                                                side_information: all_targets})
         tmp_ymean = sess.run(y_mean, feed_dict={data: all_feats,
@@ -547,38 +465,9 @@ def execute(data, version = 'original', epochs=100,at_loss_factor=8.0, target_lo
         feed_test = {data: some_feats, side_information: some_targets}
         summary, test_total_loss, test_likelihood, test_kl, test_atl, test_targetl = sess.run(tensors_test,
                                                                                                     feed_test)
-# =============================================================================
-#         if epoch % test_frequency_epochs == 0:
-#             writer.add_summary(summary, global_step=step)
-#             print(str(runNB) + '\nEpoch ' + str(epoch) + ':\n', 'Total Loss:', test_total_loss,
-#                   '\n Feature-Likelihood:', test_likelihood, #np.mean(test_likelihood),
-#                   '\n Divergence:', test_kl, # np.mean(test_kl),
-#                   '\n Archetype Loss:', test_atl,
-#                   '\n Target-Likelihood:', test_targetl, #np.mean(test_targetl), # / target_loss_factor,
-#                   )
-# 
-# =============================================================================
-# =============================================================================
-#         if epoch % save_each == 0 and epoch > 0:
-#             saver.save(sess, save_path=SAVED_MODELS_DIR / "save", global_step=epoch)
-# =============================================================================
-
-    #saver.save(sess, save_path=SAVED_MODELS_DIR / "save", global_step=n_epochs)
-    print("Model Trained!")
-# =============================================================================
-#     print("Tensorboard Path: {}".format(TENSORBOARD_DIR))
-#     print("Saved Model Path: {}".format(SAVED_MODELS_DIR))
-# =============================================================================
-
-# =============================================================================
-#     # create folder for inference results in the folder of the most recently trained model
-#     if not FINAL_RESULTS_DIR.exists():
-#         os.mkdir(FINAL_RESULTS_DIR)
-# =============================================================================
-
         
+    print("Model Trained!")
     df = create_latent_df()
-    #df.to_csv(FINAL_RESULTS_DIR / "latent_codes.csv", index=False)
     
     df_targets = df[[col for col in df.columns if 'target' in col]]
     df_features = df[[col for col in df.columns if 'mu' in col]]
@@ -589,19 +478,7 @@ def execute(data, version = 'original', epochs=100,at_loss_factor=8.0, target_lo
     
     def asarrays(lst):
         return [np.array(i) for i in lst]
-# =============================================================================
-#     print('xtrainfeat0',x_train_feat[:,0].shape,x_train_feat[:,0])
-#     print('xhat0',xhat[:,0].shape, xhat[:,0])
-#     print('xhat1',xhat[:,1].shape, xhat[:,1])
-#     print('yhat',yhat.shape,yhat)
-# =============================================================================
     result_key = (version, at_loss_factor,target_loss_factor,recon_loss_factor,kl_loss_max,anneal)
-# =============================================================================
-#     result_df = pd.DataFrame({'dim1': asarrays([x_train_feat[:,0], df['ldim0'], xhat[:,0]]),
-#                            'dim2': asarrays([x_train_feat[:,1], df['ldim1'], xhat[:,1]]),
-#                            'target_color': asarrays([x_train_targets, df_targets, yhat])},
-#                         index=['real space', 'latent space', 'reconstructed real space'])
-# =============================================================================
     result_df = pd.DataFrame({'features': [np.array(x_train_feat), tuple([np.array(df_features),np.array(df_sigma)]), np.array(xhat)],
                            'target_color': asarrays([x_train_targets, df_targets, yhat])},
                         index=['real space', 'latent space', 'reconstructed real space'])
